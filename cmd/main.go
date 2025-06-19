@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/josh.liburdi/vibestation"
-	"github.com/josh.liburdi/vibestation/config"
-	"github.com/josh.liburdi/vibestation/message"
+	"github.com/jshlbrd/vibestation"
+	"github.com/jshlbrd/vibestation/config"
+	"github.com/jshlbrd/vibestation/message"
 	"gopkg.in/yaml.v3"
 )
 

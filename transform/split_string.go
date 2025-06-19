@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/josh.liburdi/vibestation/config"
-	"github.com/josh.liburdi/vibestation/message"
+	"github.com/jshlbrd/vibestation/config"
+	"github.com/jshlbrd/vibestation/message"
 )
 
 type SplitStringConfig struct {

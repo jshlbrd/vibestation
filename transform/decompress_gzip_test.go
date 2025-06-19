@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/josh.liburdi/vibestation/config"
-	"github.com/josh.liburdi/vibestation/message"
+	"github.com/jshlbrd/vibestation/config"
+	"github.com/jshlbrd/vibestation/message"
 )
 
 func TestDecompressGzipTransform_Basic(t *testing.T) {

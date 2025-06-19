@@ -1,4 +1,4 @@
-module github.com/josh.liburdi/vibestation
+module github.com/jshlbrd/vibestation
 
 go 1.23.0
 

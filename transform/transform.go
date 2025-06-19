@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/josh.liburdi/vibestation/config"
-	"github.com/josh.liburdi/vibestation/message"
+	"github.com/jshlbrd/vibestation/config"
+	"github.com/jshlbrd/vibestation/message"
 )
 
 // Transformer is the interface implemented by all transforms and

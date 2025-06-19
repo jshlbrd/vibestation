@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/josh.liburdi/vibestation/config"
-	"github.com/josh.liburdi/vibestation/message"
+	"github.com/jshlbrd/vibestation/config"
+	"github.com/jshlbrd/vibestation/message"
 )
 
 type DecompressGzipConfig struct {
