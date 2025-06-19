@@ -1,0 +1,23 @@
+{
+  "transforms": [
+    {
+      "type": "format_from_gzip",
+      "settings": {
+        "id": "decompress_gzip"
+      }
+    },
+    {
+      "type": "string_split",
+      "settings": {
+        "separator": "\n",
+        "id": "split_lines"
+      }
+    },
+    {
+      "type": "send_stdout",
+      "settings": {
+        "id": "print_to_console"
+      }
+    }
+  ]
+} 

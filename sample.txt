@@ -1,0 +1,6 @@
+Hello World!
+This is a test file.
+Each line should be processed separately.
+The vibestation application will read this file.
+Split it into individual lines.
+And print each line to the console. 

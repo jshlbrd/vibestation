@@ -1,0 +1,17 @@
+{
+  "transforms": [
+    {
+      "type": "string_split",
+      "settings": {
+        "separator": "|",
+        "id": "split_by_pipe"
+      }
+    },
+    {
+      "type": "send_stdout",
+      "settings": {
+        "id": "print_to_console"
+      }
+    }
+  ]
+} 
