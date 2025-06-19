@@ -2,12 +2,11 @@
 package message
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 const (
@@ -123,13 +122,21 @@ func (m *Message) GetValue(key string) Value {
 		key = strings.TrimPrefix(key, metaKey)
 		key = strings.TrimSpace(key)
 
-		v := gjson.GetBytes(m.meta, key)
-		return Value{gjson: v}
+		path := NewJSONPath(key)
+		val, err := path.Get(m.meta)
+		if err != nil {
+			return Value{value: nil, exists: false}
+		}
+		return Value{value: val, exists: true}
 	}
 
 	key = strings.TrimSpace(key)
-	v := gjson.GetBytes(m.data, key)
-	return Value{gjson: v}
+	path := NewJSONPath(key)
+	val, err := path.Get(m.data)
+	if err != nil {
+		return Value{value: nil, exists: false}
+	}
+	return Value{value: val, exists: true}
 }
 
 // SetValue sets a value in the message data or metadata.
@@ -145,7 +152,8 @@ func (m *Message) SetValue(key string, value interface{}) error {
 		key = strings.TrimPrefix(key, metaKey)
 		key = strings.TrimSpace(key)
 
-		meta, err := setValue(m.meta, key, value)
+		path := NewJSONPath(key)
+		meta, err := path.Set(m.meta, value)
 		if err != nil {
 			return err
 		}
@@ -155,7 +163,8 @@ func (m *Message) SetValue(key string, value interface{}) error {
 	}
 
 	key = strings.TrimSpace(key)
-	data, err := setValue(m.data, key, value)
+	path := NewJSONPath(key)
+	data, err := path.Set(m.data, value)
 	if err != nil {
 		return err
 	}
@@ -177,7 +186,8 @@ func (m *Message) DeleteValue(key string) error {
 		key = strings.TrimPrefix(key, metaKey)
 		key = strings.TrimSpace(key)
 
-		meta, err := deleteValue(m.meta, key)
+		path := NewJSONPath(key)
+		meta, err := path.Delete(m.meta)
 		if err != nil {
 			return err
 		}
@@ -186,7 +196,8 @@ func (m *Message) DeleteValue(key string) error {
 		return nil
 	}
 
-	data, err := deleteValue(m.data, key)
+	path := NewJSONPath(key)
+	data, err := path.Delete(m.data)
 	if err != nil {
 		return err
 	}
@@ -197,71 +208,192 @@ func (m *Message) DeleteValue(key string) error {
 
 // Value provides access to JSON values returned by GetValue.
 type Value struct {
-	gjson gjson.Result
+	value  interface{}
+	exists bool
 }
 
 // Value returns the underlying value.
 func (v Value) Value() any {
-	return v.gjson.Value()
+	return v.value
 }
 
 // String returns the value as a string.
 func (v Value) String() string {
-	return v.gjson.String()
+	if v.value == nil {
+		return ""
+	}
+	switch s := v.value.(type) {
+	case string:
+		return s
+	case []byte:
+		return string(s)
+	default:
+		// Try to marshal to JSON string
+		if b, err := json.Marshal(v.value); err == nil {
+			return string(b)
+		}
+		return fmt.Sprintf("%v", v.value)
+	}
 }
 
 // Bytes returns the value as bytes.
 func (v Value) Bytes() []byte {
-	return []byte(v.gjson.String())
+	if v.value == nil {
+		return nil
+	}
+	switch b := v.value.(type) {
+	case []byte:
+		return b
+	case string:
+		return []byte(b)
+	default:
+		// Try to marshal to JSON
+		if jsonBytes, err := json.Marshal(v.value); err == nil {
+			return jsonBytes
+		}
+		return []byte(fmt.Sprintf("%v", v.value))
+	}
 }
 
 // Int returns the value as an int64.
 func (v Value) Int() int64 {
-	return v.gjson.Int()
+	if v.value == nil {
+		return 0
+	}
+	switch n := v.value.(type) {
+	case int:
+		return int64(n)
+	case int64:
+		return n
+	case float64:
+		return int64(n)
+	case string:
+		if i, err := strconv.ParseInt(n, 10, 64); err == nil {
+			return i
+		}
+	}
+	return 0
 }
 
 // Uint returns the value as a uint64.
 func (v Value) Uint() uint64 {
-	return v.gjson.Uint()
+	if v.value == nil {
+		return 0
+	}
+	switch n := v.value.(type) {
+	case uint:
+		return uint64(n)
+	case uint64:
+		return n
+	case int:
+		if n >= 0 {
+			return uint64(n)
+		}
+	case int64:
+		if n >= 0 {
+			return uint64(n)
+		}
+	case float64:
+		if n >= 0 {
+			return uint64(n)
+		}
+	case string:
+		if u, err := strconv.ParseUint(n, 10, 64); err == nil {
+			return u
+		}
+	}
+	return 0
 }
 
 // Float returns the value as a float64.
 func (v Value) Float() float64 {
-	return v.gjson.Float()
+	if v.value == nil {
+		return 0
+	}
+	switch n := v.value.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case string:
+		if f, err := strconv.ParseFloat(n, 64); err == nil {
+			return f
+		}
+	}
+	return 0
 }
 
 // Bool returns the value as a bool.
 func (v Value) Bool() bool {
-	return v.gjson.Bool()
+	if v.value == nil {
+		return false
+	}
+	switch b := v.value.(type) {
+	case bool:
+		return b
+	case string:
+		return b == "true" || b == "1"
+	case int:
+		return b != 0
+	case float64:
+		return b != 0
+	}
+	return false
 }
 
 // Array returns the value as an array of Values.
 func (v Value) Array() []Value {
-	var result []Value
-	for _, v := range v.gjson.Array() {
-		result = append(result, Value{gjson: v})
+	if v.value == nil {
+		return nil
 	}
-	return result
+	switch arr := v.value.(type) {
+	case []interface{}:
+		result := make([]Value, len(arr))
+		for i, item := range arr {
+			result[i] = Value{value: item, exists: true}
+		}
+		return result
+	case []Value:
+		return arr
+	}
+	return nil
 }
 
 // IsArray returns true if the value is an array.
 func (v Value) IsArray() bool {
-	return v.gjson.IsArray()
+	if v.value == nil {
+		return false
+	}
+	switch v.value.(type) {
+	case []interface{}, []Value:
+		return true
+	}
+	return false
 }
 
 // Map returns the value as a map of Values.
 func (v Value) Map() map[string]Value {
-	result := make(map[string]Value)
-	v.gjson.ForEach(func(key, value gjson.Result) bool {
-		result[key.String()] = Value{gjson: value}
-		return true
-	})
-	return result
+	if v.value == nil {
+		return nil
+	}
+	switch m := v.value.(type) {
+	case map[string]interface{}:
+		result := make(map[string]Value)
+		for k, v := range m {
+			result[k] = Value{value: v, exists: true}
+		}
+		return result
+	case map[string]Value:
+		return m
+	}
+	return nil
 }
 
 // Exists returns true if the value exists.
 func (v Value) Exists() bool {
-	return v.gjson.Exists()
+	return v.exists && v.value != nil
 }
 
 func deleteValue(json []byte, key string) ([]byte, error) {
@@ -273,12 +405,8 @@ func deleteValue(json []byte, key string) ([]byte, error) {
 		return json, nil
 	}
 
-	result, err := sjson.DeleteBytes(json, key)
-	if err != nil {
-		return json, err
-	}
-
-	return result, nil
+	path := NewJSONPath(key)
+	return path.Delete(json)
 }
 
 func setValue(obj []byte, key string, value interface{}) ([]byte, error) {
@@ -294,12 +422,8 @@ func setValue(obj []byte, key string, value interface{}) ([]byte, error) {
 		return obj, errSetRawInvalidValue
 	}
 
-	result, err := sjson.SetBytes(obj, key, value)
-	if err != nil {
-		return obj, err
-	}
-
-	return result, nil
+	path := NewJSONPath(key)
+	return path.Set(obj, value)
 }
 
 func setRaw(json []byte, key string, value interface{}) ([]byte, error) {
@@ -311,7 +435,7 @@ func setRaw(json []byte, key string, value interface{}) ([]byte, error) {
 		return json, nil
 	}
 
-	result, err := sjson.SetRawBytes(json, key, anyToBytes(value))
+	result, err := setValue(json, key, anyToBytes(value))
 	if err != nil {
 		return json, err
 	}
