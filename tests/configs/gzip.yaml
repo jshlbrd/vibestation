@@ -1,0 +1,4 @@
+transforms: |
+  gzip_decompress()
+  split("\n")
+  print() 

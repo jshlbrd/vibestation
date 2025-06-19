@@ -1,0 +1,3 @@
+transforms: |
+  $.foo = base64($.compressed_data)
+  print($.foo) 

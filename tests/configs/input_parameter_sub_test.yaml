@@ -1,0 +1,4 @@
+transforms: |
+  decode_base64(source="$.compressed")
+  decompress_gzip()
+  send_stdout() 

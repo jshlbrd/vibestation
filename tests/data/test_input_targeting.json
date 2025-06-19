@@ -1,0 +1,12 @@
+{
+  "message": "Hello|World|Test",
+  "compressed_data": "H4sIAEJpVGgAA/NIzcnJVwjPL8pJUUgrys9VSK/KLOACAES2Di0WAAAA",
+  "nested": {
+    "field": "value1|value2|value3",
+    "data": "H4sIAEVpVGgAAwtJLS5RSEksSVRIyy9SyAPyUlMU0jJTc1K4APu1wZ4bAAAA"
+  },
+  "array": [
+    "item1|item2",
+    "H4sIAEdpVGgAA3MsKkqsVEjNSc1NzStRSEksSeQCAODlVsETAAAA"
+  ]
+} 

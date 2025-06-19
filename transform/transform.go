@@ -21,12 +21,16 @@ type Factory func(context.Context, config.Config) (Transformer, error)
 // New is a factory function for returning a configured Transformer.
 func New(ctx context.Context, cfg config.Config) (Transformer, error) {
 	switch cfg.Type {
-	case "format_from_gzip":
-		return newFormatFromGzip(ctx, cfg)
-	case "string_split":
-		return newStringSplit(ctx, cfg)
+	case "decompress_gzip":
+		return newDecompressGzip(ctx, cfg)
+	case "split_string":
+		return newSplitString(ctx, cfg)
 	case "send_stdout":
 		return newSendStdout(ctx, cfg)
+	case "decode_base64":
+		return newDecodeBase64(ctx, cfg)
+	case "lowercase_string":
+		return newLowercaseString(ctx, cfg)
 	default:
 		return nil, fmt.Errorf("transform %s: unsupported transform type", cfg.Type)
 	}

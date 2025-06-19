@@ -460,3 +460,44 @@ func anyToBytes(v any) []byte {
 
 	return msg.GetValue("_").Bytes()
 }
+
+// GetPathValue returns a value from the message using a JSON path, handling optional $. prefix.
+// Supports metadata access via 'meta.$.field' syntax.
+func (m *Message) GetPathValue(path string) Value {
+	path = strings.TrimSpace(path)
+
+	// Handle metadata paths: meta.$.field
+	if strings.HasPrefix(path, "meta.$.") {
+		// Convert meta.$.field to meta field
+		metaPath := strings.TrimPrefix(path, "meta.$.")
+		return m.GetValue("meta " + metaPath)
+	}
+
+	// Handle regular data paths
+	if strings.HasPrefix(path, "$.") {
+		path = strings.TrimPrefix(path, "$.")
+	}
+
+	return m.GetValue(path)
+}
+
+// SetPathValue sets a value at a JSON path, supporting metadata access with meta.$ prefix
+func (m *Message) SetPathValue(path string, value interface{}) error {
+	path = strings.TrimSpace(path)
+
+	// Handle metadata access with meta.$ prefix
+	if strings.HasPrefix(path, "meta.$.") {
+		// Convert meta.$.field to meta field
+		metaPath := strings.TrimPrefix(path, "meta.$.")
+		return m.SetValue("meta "+metaPath, value)
+	}
+
+	// Handle regular JSON path access
+	if strings.HasPrefix(path, "$.") {
+		path = strings.TrimPrefix(path, "$.")
+		return m.SetValue(path, value)
+	}
+
+	// Handle direct key access
+	return m.SetValue("$."+path, value)
+}

@@ -1,0 +1,7 @@
+{
+  "data": "line1\nline2\nline3",
+  "compressed": "H4sIAKpvVGgAAytJLS5RSEksSQQAsq4I0wkAAAA=",
+  "encoded": "dGVzdCBkYXRh",
+  "result": "final output",
+  "input": "THIS SHOULD BE LOWERCASED"
+} 

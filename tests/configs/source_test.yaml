@@ -1,0 +1,3 @@
+transforms: |
+  send_stdout(source="$.message")
+  send_stdout(source="$.compressed_data") 

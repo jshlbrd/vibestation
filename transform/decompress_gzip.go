@@ -1,20 +1,22 @@
 package transform
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"io"
 
 	"github.com/josh.liburdi/vibestation/config"
 	"github.com/josh.liburdi/vibestation/message"
 )
 
-type SendStdoutConfig struct {
+type DecompressGzipConfig struct {
 	ID string `json:"id"`
 }
 
-func (c *SendStdoutConfig) Decode(in interface{}) error {
+func (c *DecompressGzipConfig) Decode(in interface{}) error {
 	if in == nil {
 		return nil
 	}
@@ -27,14 +29,14 @@ func (c *SendStdoutConfig) Decode(in interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
-	conf := SendStdoutConfig{}
+func newDecompressGzip(_ context.Context, cfg config.Config) (*DecompressGzip, error) {
+	conf := DecompressGzipConfig{}
 	if err := conf.Decode(cfg.Settings); err != nil {
-		return nil, fmt.Errorf("transform send_stdout: %v", err)
+		return nil, fmt.Errorf("transform decompress_gzip: %v", err)
 	}
 
 	// Use settings to determine ID (named only)
-	id := "send_stdout"
+	id := "decompress_gzip"
 	if v, ok := cfg.Settings["id"]; ok {
 		if s, ok := v.(string); ok && s != "" {
 			id = s
@@ -58,7 +60,7 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 		}
 	}
 
-	tf := SendStdout{
+	tf := DecompressGzip{
 		conf:       conf,
 		settings:   cfg.Settings,
 		sourcePath: sourcePath,
@@ -68,18 +70,14 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 	return &tf, nil
 }
 
-type SendStdout struct {
-	conf       SendStdoutConfig
+type DecompressGzip struct {
+	conf       DecompressGzipConfig
 	settings   map[string]interface{}
 	sourcePath string
 	targetPath string
-	mu         sync.Mutex
 }
 
-func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
-	tf.mu.Lock()
-	defer tf.mu.Unlock()
-
+func (tf *DecompressGzip) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
 	if msg.IsControl() {
 		return []*message.Message{msg}, nil
 	}
@@ -96,21 +94,45 @@ func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*m
 		inputData = msg.Data()
 	}
 
-	// If targetPath is set, store the input in the target JSON path
+	decompressed, err := decompressGzip(inputData)
+	if err != nil {
+		return nil, fmt.Errorf("transform %s: %v", tf.conf.ID, err)
+	}
+
+	// If targetPath is set, store the result in the target JSON path
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, string(inputData))
+		err := msg.SetPathValue(tf.targetPath, string(decompressed))
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}
+	} else {
+		msg.SetData(decompressed)
 	}
-
-	// Print the message data to stdout
-	fmt.Println(string(inputData))
 
 	return []*message.Message{msg}, nil
 }
 
-func (tf *SendStdout) String() string {
+func (tf *DecompressGzip) String() string {
 	b, _ := json.Marshal(tf.conf)
 	return string(b)
+}
+
+// decompressGzip decompresses gzipped data.
+func decompressGzip(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	decompressed, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return decompressed, nil
 }

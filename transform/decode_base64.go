@@ -2,19 +2,20 @@ package transform
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"strings"
 
 	"github.com/josh.liburdi/vibestation/config"
 	"github.com/josh.liburdi/vibestation/message"
 )
 
-type SendStdoutConfig struct {
+type DecodeBase64Config struct {
 	ID string `json:"id"`
 }
 
-func (c *SendStdoutConfig) Decode(in interface{}) error {
+func (c *DecodeBase64Config) Decode(in interface{}) error {
 	if in == nil {
 		return nil
 	}
@@ -27,14 +28,14 @@ func (c *SendStdoutConfig) Decode(in interface{}) error {
 	return json.Unmarshal(b, c)
 }
 
-func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
-	conf := SendStdoutConfig{}
+func newDecodeBase64(_ context.Context, cfg config.Config) (*DecodeBase64Transform, error) {
+	conf := DecodeBase64Config{}
 	if err := conf.Decode(cfg.Settings); err != nil {
-		return nil, fmt.Errorf("transform send_stdout: %v", err)
+		return nil, fmt.Errorf("transform decode_base64: %v", err)
 	}
 
 	// Use settings to determine ID (named only)
-	id := "send_stdout"
+	id := "decode_base64"
 	if v, ok := cfg.Settings["id"]; ok {
 		if s, ok := v.(string); ok && s != "" {
 			id = s
@@ -58,7 +59,7 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 		}
 	}
 
-	tf := SendStdout{
+	tf := DecodeBase64Transform{
 		conf:       conf,
 		settings:   cfg.Settings,
 		sourcePath: sourcePath,
@@ -68,18 +69,14 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 	return &tf, nil
 }
 
-type SendStdout struct {
-	conf       SendStdoutConfig
+type DecodeBase64Transform struct {
+	conf       DecodeBase64Config
 	settings   map[string]interface{}
 	sourcePath string
 	targetPath string
-	mu         sync.Mutex
 }
 
-func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
-	tf.mu.Lock()
-	defer tf.mu.Unlock()
-
+func (tf *DecodeBase64Transform) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
 	if msg.IsControl() {
 		return []*message.Message{msg}, nil
 	}
@@ -96,21 +93,44 @@ func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*m
 		inputData = msg.Data()
 	}
 
-	// If targetPath is set, store the input in the target JSON path
+	decoded, err := decodeBase64(inputData)
+	if err != nil {
+		return nil, fmt.Errorf("transform %s: %v", tf.conf.ID, err)
+	}
+
+	// If we have a target path, store the result there
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, string(inputData))
+		err := msg.SetPathValue(tf.targetPath, string(decoded))
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}
+	} else {
+		// Otherwise, set as message data
+		msg.SetData(decoded)
 	}
-
-	// Print the message data to stdout
-	fmt.Println(string(inputData))
 
 	return []*message.Message{msg}, nil
 }
 
-func (tf *SendStdout) String() string {
+func (tf *DecodeBase64Transform) String() string {
 	b, _ := json.Marshal(tf.conf)
 	return string(b)
+}
+
+// decodeBase64 decodes base64-encoded data.
+func decodeBase64(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+
+	// Convert to string and trim whitespace
+	input := strings.TrimSpace(string(data))
+
+	// Decode base64
+	decoded, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return nil, fmt.Errorf("base64 decode error: %v", err)
+	}
+
+	return decoded, nil
 }

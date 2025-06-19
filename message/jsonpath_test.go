@@ -141,7 +141,7 @@ func TestJSONPath_Set(t *testing.T) {
 			json.Unmarshal(result, &resultObj)
 			json.Unmarshal([]byte(tt.expected), &expectedObj)
 
-			if !jsonEqual(resultObj, expectedObj) {
+			if !jsonEqual(mustMarshal(resultObj), mustMarshal(expectedObj)) {
 				t.Errorf("Expected %s, got %s", tt.expected, string(result))
 			}
 		})
@@ -188,7 +188,7 @@ func TestJSONPath_Delete(t *testing.T) {
 			json.Unmarshal(result, &resultObj)
 			json.Unmarshal([]byte(tt.expected), &expectedObj)
 
-			if !jsonEqual(resultObj, expectedObj) {
+			if !jsonEqual(mustMarshal(resultObj), mustMarshal(expectedObj)) {
 				t.Errorf("Expected %s, got %s", tt.expected, string(result))
 			}
 		})
@@ -241,9 +241,8 @@ func TestMessage_GetValue_SetValue(t *testing.T) {
 	}
 }
 
-// Helper function to compare JSON objects
-func jsonEqual(a, b interface{}) bool {
-	aBytes, _ := json.Marshal(a)
-	bBytes, _ := json.Marshal(b)
-	return string(aBytes) == string(bBytes)
+// Helper for marshaling to string
+func mustMarshal(v interface{}) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }

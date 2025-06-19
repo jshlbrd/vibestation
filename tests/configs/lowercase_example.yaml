@@ -1,0 +1,7 @@
+transforms: |
+  # Lowercase a field and store in another field
+  $.output = lowercase_string(source="$.input")
+  # Lowercase the main message data
+  lowercase_string()
+  # Print the result
+  send_stdout() 

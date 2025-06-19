@@ -1,0 +1,4 @@
+transforms: |
+  base64(input="$.compressed_data")
+  format_from_gzip()
+  send_stdout() 

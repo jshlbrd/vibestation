@@ -2,21 +2,23 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/josh.liburdi/vibestation"
 	"github.com/josh.liburdi/vibestation/config"
 	"github.com/josh.liburdi/vibestation/message"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
 	// Parse command line flags
 	var (
-		configFile = flag.String("config", "", "JSON configuration file")
+		configFile = flag.String("config", "", "Configuration file (YAML or SUB)")
 		inputFile  = flag.String("input", "", "Input file to process")
 		gzipMode   = flag.Bool("gzip", false, "Treat input as gzipped data")
 	)
@@ -27,7 +29,7 @@ func main() {
 	var err error
 
 	if *configFile != "" {
-		// Load configuration from JSON file
+		// Load configuration from file (YAML or SUB)
 		cfg, err = loadConfigFromFile(*configFile)
 		if err != nil {
 			log.Fatalf("Error loading configuration file: %v", err)
@@ -67,7 +69,7 @@ func main() {
 	fmt.Printf("Processed %d messages\n", len(results))
 }
 
-// loadConfigFromFile loads a vibestation configuration from a JSON file
+// loadConfigFromFile loads a vibestation configuration from a file (YAML or SUB)
 func loadConfigFromFile(filePath string) (vibestation.Config, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -75,12 +77,95 @@ func loadConfigFromFile(filePath string) (vibestation.Config, error) {
 	}
 	defer file.Close()
 
-	var cfg vibestation.Config
-	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
-		return vibestation.Config{}, fmt.Errorf("failed to decode config file: %v", err)
+	// Determine file type based on extension
+	ext := strings.ToLower(filepath.Ext(filePath))
+
+	switch ext {
+	case ".yaml", ".yml":
+		return loadYAMLConfig(file)
+	case ".sub":
+		return loadSUBConfig(file)
+	default:
+		// Try to detect format by reading first few bytes
+		return loadAutoDetectConfig(file)
+	}
+}
+
+// loadYAMLConfig loads a YAML configuration file with embedded SUB DSL
+func loadYAMLConfig(file *os.File) (vibestation.Config, error) {
+	// Read the entire file content
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to read YAML config file: %v", err)
 	}
 
-	return cfg, nil
+	// Parse YAML
+	var yamlConfig struct {
+		Transforms string `yaml:"transforms"`
+	}
+
+	if err := yaml.Unmarshal(content, &yamlConfig); err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to parse YAML config: %v", err)
+	}
+
+	// Parse the embedded SUB script
+	parser := config.NewSUBParser(yamlConfig.Transforms)
+	transforms, err := parser.Parse()
+	if err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to parse SUB script in YAML: %v", err)
+	}
+
+	return vibestation.Config{
+		Transforms: transforms,
+	}, nil
+}
+
+// loadSUBConfig loads a SUB-style configuration file
+func loadSUBConfig(file *os.File) (vibestation.Config, error) {
+	// Read the entire file content
+	content, err := os.ReadFile(file.Name())
+	if err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to read SUB config file: %v", err)
+	}
+
+	// Parse the SUB script
+	parser := config.NewSUBParser(string(content))
+	transforms, err := parser.Parse()
+	if err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to parse SUB config: %v", err)
+	}
+
+	return vibestation.Config{
+		Transforms: transforms,
+	}, nil
+}
+
+// loadAutoDetectConfig tries to auto-detect the configuration format
+func loadAutoDetectConfig(file *os.File) (vibestation.Config, error) {
+	// Read first few bytes to detect format
+	buffer := make([]byte, 1024)
+	n, err := file.Read(buffer)
+	if err != nil {
+		return vibestation.Config{}, fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	content := string(buffer[:n])
+
+	// Check if it looks like YAML (contains "transforms:" and "|")
+	if strings.Contains(content, "transforms:") && strings.Contains(content, "|") {
+		// Reset file position and try YAML
+		file.Seek(0, 0)
+		return loadYAMLConfig(file)
+	}
+
+	// Check if it looks like SUB (contains function calls or assignments)
+	if strings.Contains(content, "(") || strings.Contains(content, "=") {
+		// Reset file position and try SUB
+		file.Seek(0, 0)
+		return loadSUBConfig(file)
+	}
+
+	return vibestation.Config{}, fmt.Errorf("unable to detect configuration format")
 }
 
 // createDefaultConfig creates a default configuration based on command line flags

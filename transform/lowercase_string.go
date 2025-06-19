@@ -4,37 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"strings"
 
 	"github.com/josh.liburdi/vibestation/config"
 	"github.com/josh.liburdi/vibestation/message"
 )
 
-type SendStdoutConfig struct {
+type LowercaseStringConfig struct {
 	ID string `json:"id"`
 }
 
-func (c *SendStdoutConfig) Decode(in interface{}) error {
+func (c *LowercaseStringConfig) Decode(in interface{}) error {
 	if in == nil {
 		return nil
 	}
-
 	b, err := json.Marshal(in)
 	if err != nil {
 		return err
 	}
-
 	return json.Unmarshal(b, c)
 }
 
-func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
-	conf := SendStdoutConfig{}
+func newLowercaseString(_ context.Context, cfg config.Config) (*LowercaseStringTransform, error) {
+	conf := LowercaseStringConfig{}
 	if err := conf.Decode(cfg.Settings); err != nil {
-		return nil, fmt.Errorf("transform send_stdout: %v", err)
+		return nil, fmt.Errorf("transform lowercase_string: %v", err)
 	}
 
-	// Use settings to determine ID (named only)
-	id := "send_stdout"
+	id := "lowercase_string"
 	if v, ok := cfg.Settings["id"]; ok {
 		if s, ok := v.(string); ok && s != "" {
 			id = s
@@ -42,7 +39,6 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 	}
 	conf.ID = id
 
-	// Universal source argument (named only)
 	var sourcePath string
 	if v, ok := cfg.Settings["source"]; ok {
 		if s, ok := v.(string); ok {
@@ -50,7 +46,6 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 		}
 	}
 
-	// Target path for assignments
 	var targetPath string
 	if v, ok := cfg.Settings["target"]; ok {
 		if s, ok := v.(string); ok {
@@ -58,59 +53,54 @@ func newSendStdout(_ context.Context, cfg config.Config) (*SendStdout, error) {
 		}
 	}
 
-	tf := SendStdout{
+	tf := LowercaseStringTransform{
 		conf:       conf,
-		settings:   cfg.Settings,
 		sourcePath: sourcePath,
 		targetPath: targetPath,
+		settings:   cfg.Settings,
 	}
 
 	return &tf, nil
 }
 
-type SendStdout struct {
-	conf       SendStdoutConfig
-	settings   map[string]interface{}
+type LowercaseStringTransform struct {
+	conf       LowercaseStringConfig
 	sourcePath string
 	targetPath string
-	mu         sync.Mutex
+	settings   map[string]interface{}
 }
 
-func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
-	tf.mu.Lock()
-	defer tf.mu.Unlock()
-
+func (tf *LowercaseStringTransform) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
 	if msg.IsControl() {
 		return []*message.Message{msg}, nil
 	}
 
-	// Determine input data
-	var inputData []byte
+	var input string
 	if tf.sourcePath != "" {
 		val := msg.GetPathValue(tf.sourcePath)
 		if val.Exists() {
-			inputData = val.Bytes()
+			input = val.String()
 		}
 	}
-	if inputData == nil {
-		inputData = msg.Data()
+	if input == "" {
+		input = string(msg.Data())
 	}
 
-	// If targetPath is set, store the input in the target JSON path
+	lower := strings.ToLower(input)
+
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, string(inputData))
+		err := msg.SetPathValue(tf.targetPath, lower)
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}
+	} else {
+		msg.SetData([]byte(lower))
 	}
-
-	// Print the message data to stdout
-	fmt.Println(string(inputData))
 
 	return []*message.Message{msg}, nil
 }
 
-func (tf *SendStdout) String() string {
+func (tf *LowercaseStringTransform) String() string {
 	b, _ := json.Marshal(tf.conf)
 	return string(b)
 }
