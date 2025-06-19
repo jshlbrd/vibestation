@@ -1,4 +1,3 @@
 transforms: |
-  decode_base64(source="$.compressed")
-  decompress_gzip()
+  split_string(separator="|", source=$.foo)
   send_stdout() 

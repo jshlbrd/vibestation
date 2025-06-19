@@ -1,4 +1,3 @@
 transforms: |
-  decompress_gzip()
   split_string(separator="\n")
-  send_stdout() 
+  send_stdout()

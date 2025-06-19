@@ -1,0 +1,3 @@
+transforms: |
+  lowercase_string($.input)
+  send_stdout(source=$.input) 

@@ -7,16 +7,16 @@ import (
 	"strings"
 )
 
-// SUBParser parses SUB sublang configuration
-type SUBParser struct{}
+// Parser parses SUB sublang configuration
+type Parser struct{}
 
-// NewSUBParser creates a new SUB parser
-func NewSUBParser() *SUBParser {
-	return &SUBParser{}
+// NewParser creates a new sublang parser
+func NewParser() *Parser {
+	return &Parser{}
 }
 
 // Parse parses SUB sublang and returns a list of transforms
-func (p *SUBParser) Parse(sublang string) ([]map[string]interface{}, error) {
+func (p *Parser) Parse(sublang string) ([]map[string]interface{}, error) {
 	var transforms []map[string]interface{}
 	lines := strings.Split(sublang, "\n")
 
@@ -37,7 +37,7 @@ func (p *SUBParser) Parse(sublang string) ([]map[string]interface{}, error) {
 }
 
 // parseLine parses a single line and returns transforms
-func (p *SUBParser) parseLine(line string) ([]map[string]interface{}, error) {
+func (p *Parser) parseLine(line string) ([]map[string]interface{}, error) {
 	// Handle direct assignment: $.target = $.source
 	if p.isDirectAssignment(line) {
 		return p.parseDirectAssignment(line)
@@ -58,12 +58,12 @@ func (p *SUBParser) parseLine(line string) ([]map[string]interface{}, error) {
 }
 
 // isDirectAssignment checks if line is a direct field assignment
-func (p *SUBParser) isDirectAssignment(line string) bool {
+func (p *Parser) isDirectAssignment(line string) bool {
 	return strings.Contains(line, "=") && !strings.Contains(line, "(")
 }
 
 // parseDirectAssignment parses direct field assignments
-func (p *SUBParser) parseDirectAssignment(line string) ([]map[string]interface{}, error) {
+func (p *Parser) parseDirectAssignment(line string) ([]map[string]interface{}, error) {
 	parts := strings.SplitN(line, "=", 2)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid assignment: %s", line)
@@ -86,7 +86,7 @@ func (p *SUBParser) parseDirectAssignment(line string) ([]map[string]interface{}
 }
 
 // isAssignmentWithFunction checks if line is an assignment with a function call
-func (p *SUBParser) isAssignmentWithFunction(line string) bool {
+func (p *Parser) isAssignmentWithFunction(line string) bool {
 	if !strings.Contains(line, "=") || !strings.Contains(line, "(") {
 		return false
 	}
@@ -96,7 +96,7 @@ func (p *SUBParser) isAssignmentWithFunction(line string) bool {
 }
 
 // parseAssignmentWithFunction parses assignments with function calls
-func (p *SUBParser) parseAssignmentWithFunction(line string) ([]map[string]interface{}, error) {
+func (p *Parser) parseAssignmentWithFunction(line string) ([]map[string]interface{}, error) {
 	eqIdx := strings.Index(line, "=")
 	target := strings.TrimSpace(line[:eqIdx])
 	funcCall := strings.TrimSpace(line[eqIdx+1:])
@@ -110,17 +110,17 @@ func (p *SUBParser) parseAssignmentWithFunction(line string) ([]map[string]inter
 }
 
 // isFunctionCall checks if line is a function call
-func (p *SUBParser) isFunctionCall(line string) bool {
+func (p *Parser) isFunctionCall(line string) bool {
 	return strings.Contains(line, "(") && strings.Contains(line, ")")
 }
 
 // parseFunctionCall parses function calls
-func (p *SUBParser) parseFunctionCall(line string) ([]map[string]interface{}, error) {
+func (p *Parser) parseFunctionCall(line string) ([]map[string]interface{}, error) {
 	return p.parseFunctionCallWithTarget(line, "")
 }
 
 // parseFunctionCallWithTarget parses function calls with optional target override
-func (p *SUBParser) parseFunctionCallWithTarget(line, target string) ([]map[string]interface{}, error) {
+func (p *Parser) parseFunctionCallWithTarget(line, target string) ([]map[string]interface{}, error) {
 	openParen := strings.Index(line, "(")
 	closeParen := strings.LastIndex(line, ")")
 	if openParen == -1 || closeParen == -1 || closeParen <= openParen {
@@ -180,7 +180,7 @@ func (p *SUBParser) parseFunctionCallWithTarget(line, target string) ([]map[stri
 }
 
 // parseArguments parses function arguments, including nested function calls
-func (p *SUBParser) parseArguments(argsStr string) ([]string, error) {
+func (p *Parser) parseArguments(argsStr string) ([]string, error) {
 	if strings.TrimSpace(argsStr) == "" {
 		return []string{}, nil
 	}
@@ -240,7 +240,7 @@ func (p *SUBParser) parseArguments(argsStr string) ([]string, error) {
 }
 
 // buildTransformSettings builds transform settings from arguments
-func (p *SUBParser) buildTransformSettings(funcName string, args []string) (map[string]interface{}, error) {
+func (p *Parser) buildTransformSettings(funcName string, args []string) (map[string]interface{}, error) {
 	settings := make(map[string]interface{})
 	nestedArgIndex := 0
 	positionalIndex := 0
@@ -258,7 +258,7 @@ func (p *SUBParser) buildTransformSettings(funcName string, args []string) (map[
 }
 
 // processArgument processes a single argument
-func (p *SUBParser) processArgument(funcName, arg string, settings map[string]interface{}, nestedArgIndex, positionalIndex *int) error {
+func (p *Parser) processArgument(funcName, arg string, settings map[string]interface{}, nestedArgIndex, positionalIndex *int) error {
 	if p.isNamedArgument(arg) {
 		return p.processNamedArgument(arg, settings, nestedArgIndex)
 	} else if p.isLegacyNamedArgument(arg) {
@@ -271,12 +271,12 @@ func (p *SUBParser) processArgument(funcName, arg string, settings map[string]in
 }
 
 // isNamedArgument checks if argument is a named argument (key=value)
-func (p *SUBParser) isNamedArgument(arg string) bool {
+func (p *Parser) isNamedArgument(arg string) bool {
 	return strings.Contains(arg, "=")
 }
 
 // processNamedArgument processes a named argument
-func (p *SUBParser) processNamedArgument(arg string, settings map[string]interface{}, nestedArgIndex *int) error {
+func (p *Parser) processNamedArgument(arg string, settings map[string]interface{}, nestedArgIndex *int) error {
 	kv := strings.SplitN(arg, "=", 2)
 	if len(kv) != 2 {
 		return fmt.Errorf("invalid named argument: %s", arg)
@@ -296,12 +296,12 @@ func (p *SUBParser) processNamedArgument(arg string, settings map[string]interfa
 }
 
 // isLegacyNamedArgument checks if argument is a legacy named argument (key:value)
-func (p *SUBParser) isLegacyNamedArgument(arg string) bool {
+func (p *Parser) isLegacyNamedArgument(arg string) bool {
 	return strings.Contains(arg, ":")
 }
 
 // processLegacyNamedArgument processes a legacy named argument
-func (p *SUBParser) processLegacyNamedArgument(arg string, settings map[string]interface{}) error {
+func (p *Parser) processLegacyNamedArgument(arg string, settings map[string]interface{}) error {
 	kv := strings.SplitN(arg, ":", 2)
 	if len(kv) != 2 {
 		return fmt.Errorf("invalid legacy named argument: %s", arg)
@@ -322,19 +322,19 @@ func (p *SUBParser) processLegacyNamedArgument(arg string, settings map[string]i
 }
 
 // isNestedFunction checks if argument is a nested function call
-func (p *SUBParser) isNestedFunction(arg string) bool {
+func (p *Parser) isNestedFunction(arg string) bool {
 	return strings.Contains(arg, "(") && strings.Contains(arg, ")")
 }
 
 // processNestedFunction processes a nested function call
-func (p *SUBParser) processNestedFunction(arg string, settings map[string]interface{}, nestedArgIndex *int) error {
+func (p *Parser) processNestedFunction(arg string, settings map[string]interface{}, nestedArgIndex *int) error {
 	settings[fmt.Sprintf("nested_arg_%d", *nestedArgIndex)] = arg
 	*nestedArgIndex++
 	return nil
 }
 
 // processPositionalArgument processes a positional argument
-func (p *SUBParser) processPositionalArgument(funcName, arg string, settings map[string]interface{}, positionalIndex *int) error {
+func (p *Parser) processPositionalArgument(funcName, arg string, settings map[string]interface{}, positionalIndex *int) error {
 	if p.isBuiltinTransform(funcName) {
 		return p.processBuiltinPositionalArgument(funcName, arg, settings, positionalIndex)
 	} else {
@@ -343,7 +343,7 @@ func (p *SUBParser) processPositionalArgument(funcName, arg string, settings map
 }
 
 // isBuiltinTransform checks if function name is a built-in transform
-func (p *SUBParser) isBuiltinTransform(funcName string) bool {
+func (p *Parser) isBuiltinTransform(funcName string) bool {
 	builtins := map[string]bool{
 		"split_string":     true,
 		"decompress_gzip":  true,
@@ -355,7 +355,7 @@ func (p *SUBParser) isBuiltinTransform(funcName string) bool {
 }
 
 // processBuiltinPositionalArgument processes positional arguments for built-in transforms
-func (p *SUBParser) processBuiltinPositionalArgument(funcName, arg string, settings map[string]interface{}, positionalIndex *int) error {
+func (p *Parser) processBuiltinPositionalArgument(funcName, arg string, settings map[string]interface{}, positionalIndex *int) error {
 	if *positionalIndex == 0 {
 		if strings.HasPrefix(arg, "$.") {
 			settings["source"] = arg
@@ -372,14 +372,14 @@ func (p *SUBParser) processBuiltinPositionalArgument(funcName, arg string, setti
 }
 
 // processCustomPositionalArgument processes positional arguments for custom functions
-func (p *SUBParser) processCustomPositionalArgument(arg string, settings map[string]interface{}, positionalIndex *int) error {
+func (p *Parser) processCustomPositionalArgument(arg string, settings map[string]interface{}, positionalIndex *int) error {
 	settings[fmt.Sprintf("arg%d", *positionalIndex)] = p.unquoteValue(arg)
 	*positionalIndex++
 	return nil
 }
 
 // unquoteValue unquotes a value if it's quoted
-func (p *SUBParser) unquoteValue(value string) interface{} {
+func (p *Parser) unquoteValue(value string) interface{} {
 	if len(value) > 1 && ((value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'')) {
 		unq, err := strconv.Unquote(value)
 		if err == nil {
@@ -390,7 +390,7 @@ func (p *SUBParser) unquoteValue(value string) interface{} {
 }
 
 // setDefaultSettings sets default settings for known transforms
-func (p *SUBParser) setDefaultSettings(funcName string, settings map[string]interface{}) {
+func (p *Parser) setDefaultSettings(funcName string, settings map[string]interface{}) {
 	defaults := map[string]map[string]interface{}{
 		"decompress_gzip": {
 			"id": "decompress_gzip",

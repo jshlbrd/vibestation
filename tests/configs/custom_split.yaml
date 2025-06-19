@@ -1,3 +1,3 @@
 transforms: |
-  split("|")
-  print() 
+  split_string(separator="|")
+  send_stdout() 

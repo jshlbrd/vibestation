@@ -44,6 +44,17 @@ func New(ctx context.Context, cfg Config, opts ...func(*Vibestation)) (*Vibestat
 
 	// Create transforms from the configuration.
 	for _, c := range cfg.Transforms {
+		// Handle direct assignments natively
+		if c.Type == "direct_assignment" {
+			// Create a special transformer that applies direct assignments
+			t := &directAssignmentTransformer{
+				source: c.Settings["source"].(string),
+				target: c.Settings["target"].(string),
+			}
+			vibe.tforms = append(vibe.tforms, t)
+			continue
+		}
+
 		t, err := vibe.factory(ctx, c)
 		if err != nil {
 			return nil, err
@@ -78,4 +89,27 @@ func (v *Vibestation) String() string {
 	}
 
 	return string(b)
+}
+
+// directAssignmentTransformer handles direct field assignments like "$.foo = $.bar"
+type directAssignmentTransformer struct {
+	source string
+	target string
+}
+
+func (d *directAssignmentTransformer) Transform(ctx context.Context, msg *message.Message) ([]*message.Message, error) {
+	// Get the value from source path
+	sourceValue := msg.GetPathValue(d.source)
+	if !sourceValue.Exists() {
+		// If source doesn't exist, skip the assignment
+		return []*message.Message{msg}, nil
+	}
+
+	// Set the value to target path
+	err := msg.SetPathValue(d.target, sourceValue.Value())
+	if err != nil {
+		return nil, fmt.Errorf("direct assignment: failed to set target %s: %v", d.target, err)
+	}
+
+	return []*message.Message{msg}, nil
 }

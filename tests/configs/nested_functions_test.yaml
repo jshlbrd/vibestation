@@ -1,0 +1,3 @@
+transforms: |
+  $.result = lowercase_string(source=decode_base64(source=$.compressed_data))
+  send_stdout(source=$.result) 

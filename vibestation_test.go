@@ -2,11 +2,24 @@ package vibestation
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/jshlbrd/vibestation/config"
 	"github.com/jshlbrd/vibestation/message"
 )
+
+func jsonEqual(a, b string) bool {
+	var o1, o2 interface{}
+	if err := json.Unmarshal([]byte(a), &o1); err != nil {
+		return false
+	}
+	if err := json.Unmarshal([]byte(b), &o2); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(o1, o2)
+}
 
 func TestVibestationTransform(t *testing.T) {
 	// Create a simple configuration with string split and stdout transforms
@@ -69,5 +82,47 @@ func TestVibestationNoTransforms(t *testing.T) {
 	_, err := New(ctx, cfg)
 	if err == nil {
 		t.Error("Expected error when no transforms are configured")
+	}
+}
+
+func TestVibestationDirectAssignment(t *testing.T) {
+	// Create a config with direct field assignment
+	cfg := Config{
+		Transforms: []config.Config{
+			{
+				Type: "direct_assignment",
+				Settings: map[string]interface{}{
+					"source": "$.message",
+					"target": "$.foo",
+				},
+			},
+		},
+	}
+
+	// Create vibestation instance
+	vibe, err := New(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Failed to create vibestation: %v", err)
+	}
+
+	// Create test message
+	msg := message.New()
+	msg.SetData([]byte(`{"message": "hello world", "value": 42}`))
+
+	// Transform the message
+	result, err := vibe.Transform(context.Background(), msg)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("Expected 1 result message, got %d", len(result))
+	}
+
+	// Check that the field was copied
+	data := string(result[0].Data())
+	expected := `{"message":"hello world","value":42,"foo":"hello world"}`
+	if !jsonEqual(data, expected) {
+		t.Errorf("Expected %s, got %s", expected, data)
 	}
 }

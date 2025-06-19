@@ -20,28 +20,21 @@ func main() {
 	var (
 		configFile = flag.String("config", "", "Configuration file (YAML or SUB)")
 		inputFile  = flag.String("input", "", "Input file to process")
-		gzipMode   = flag.Bool("gzip", false, "Treat input as gzipped data")
 	)
 	flag.Parse()
 
-	// Determine configuration source
-	var cfg vibestation.Config
-	var err error
-
-	if *configFile != "" {
-		// Load configuration from file (YAML or SUB)
-		cfg, err = loadConfigFromFile(*configFile)
-		if err != nil {
-			log.Fatalf("Error loading configuration file: %v", err)
-		}
-	} else {
-		// Use default configuration based on command line flags
-		cfg = createDefaultConfig(*gzipMode)
+	// Validate required arguments
+	if *configFile == "" {
+		log.Fatal("Please provide a configuration file with -config flag")
 	}
-
-	// Validate input file
 	if *inputFile == "" {
 		log.Fatal("Please provide an input file with -input flag")
+	}
+
+	// Load configuration from file
+	cfg, err := loadConfigFromFile(*configFile)
+	if err != nil {
+		log.Fatalf("Error loading configuration file: %v", err)
 	}
 
 	// Read the input file
@@ -91,7 +84,7 @@ func loadConfigFromFile(filePath string) (vibestation.Config, error) {
 	}
 }
 
-// loadYAMLConfig loads a YAML configuration file with embedded SUB DSL
+// loadYAMLConfig loads a YAML configuration file with embedded SUB sublang
 func loadYAMLConfig(file *os.File) (vibestation.Config, error) {
 	// Read the entire file content
 	content, err := os.ReadFile(file.Name())
@@ -109,10 +102,37 @@ func loadYAMLConfig(file *os.File) (vibestation.Config, error) {
 	}
 
 	// Parse the embedded SUB script
-	parser := config.NewSUBParser(yamlConfig.Transforms)
-	transforms, err := parser.Parse()
+	parser := config.NewParser()
+	transformMaps, err := parser.Parse(yamlConfig.Transforms)
 	if err != nil {
 		return vibestation.Config{}, fmt.Errorf("failed to parse SUB script in YAML: %v", err)
+	}
+
+	// Convert map[string]interface{} to config.Config
+	var transforms []config.Config
+	for _, tmap := range transformMaps {
+		transformType, ok := tmap["type"].(string)
+		if !ok {
+			return vibestation.Config{}, fmt.Errorf("transform missing type field")
+		}
+
+		// Remove type and id from settings, keep everything else
+		settings := make(map[string]interface{})
+		for k, v := range tmap {
+			if k != "type" && k != "id" {
+				settings[k] = v
+			}
+		}
+
+		// Add id to settings if it exists
+		if id, ok := tmap["id"].(string); ok {
+			settings["id"] = id
+		}
+
+		transforms = append(transforms, config.Config{
+			Type:     transformType,
+			Settings: settings,
+		})
 	}
 
 	return vibestation.Config{
@@ -129,10 +149,37 @@ func loadSUBConfig(file *os.File) (vibestation.Config, error) {
 	}
 
 	// Parse the SUB script
-	parser := config.NewSUBParser(string(content))
-	transforms, err := parser.Parse()
+	parser := config.NewParser()
+	transformMaps, err := parser.Parse(string(content))
 	if err != nil {
 		return vibestation.Config{}, fmt.Errorf("failed to parse SUB config: %v", err)
+	}
+
+	// Convert map[string]interface{} to config.Config
+	var transforms []config.Config
+	for _, tmap := range transformMaps {
+		transformType, ok := tmap["type"].(string)
+		if !ok {
+			return vibestation.Config{}, fmt.Errorf("transform missing type field")
+		}
+
+		// Remove type and id from settings, keep everything else
+		settings := make(map[string]interface{})
+		for k, v := range tmap {
+			if k != "type" && k != "id" {
+				settings[k] = v
+			}
+		}
+
+		// Add id to settings if it exists
+		if id, ok := tmap["id"].(string); ok {
+			settings["id"] = id
+		}
+
+		transforms = append(transforms, config.Config{
+			Type:     transformType,
+			Settings: settings,
+		})
 	}
 
 	return vibestation.Config{
@@ -166,40 +213,4 @@ func loadAutoDetectConfig(file *os.File) (vibestation.Config, error) {
 	}
 
 	return vibestation.Config{}, fmt.Errorf("unable to detect configuration format")
-}
-
-// createDefaultConfig creates a default configuration based on command line flags
-func createDefaultConfig(gzipMode bool) vibestation.Config {
-	cfg := vibestation.Config{
-		Transforms: []config.Config{},
-	}
-
-	// Add gzip decompression if requested
-	if gzipMode {
-		cfg.Transforms = append(cfg.Transforms, config.Config{
-			Type: "format_from_gzip",
-			Settings: map[string]interface{}{
-				"id": "decompress_gzip",
-			},
-		})
-	}
-
-	// Add string split transform to split into lines
-	cfg.Transforms = append(cfg.Transforms, config.Config{
-		Type: "string_split",
-		Settings: map[string]interface{}{
-			"separator": "\n",
-			"id":        "split_lines",
-		},
-	})
-
-	// Add stdout transform to print results
-	cfg.Transforms = append(cfg.Transforms, config.Config{
-		Type: "send_stdout",
-		Settings: map[string]interface{}{
-			"id": "print_to_console",
-		},
-	})
-
-	return cfg
 }
