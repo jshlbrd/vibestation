@@ -12,12 +12,45 @@ type JSONPath struct {
 	parts []string
 }
 
-// NewJSONPath creates a new JSONPath from a dot-separated string
+// NewJSONPath creates a new JSONPath from a strict JSONPath string (e.g., $.foo.bar, $.arr[0])
 func NewJSONPath(path string) *JSONPath {
-	if path == "" {
+	path = strings.TrimSpace(path)
+	if path == "" || path == "$" || path == "meta.$" {
 		return &JSONPath{parts: []string{}}
 	}
-	return &JSONPath{parts: strings.Split(path, ".")}
+	// Only allow paths starting with $. or meta.$.
+	if strings.HasPrefix(path, "$.") {
+		path = path[2:]
+	} else if strings.HasPrefix(path, "meta.$.") {
+		path = path[len("meta.$."):]
+	} else {
+		// Invalid path, will result in no parts
+		return &JSONPath{parts: []string{}}
+	}
+	// Split on dots, but handle bracket notation for arrays
+	var parts []string
+	for _, part := range strings.Split(path, ".") {
+		for len(part) > 0 {
+			if idx := strings.Index(part, "["); idx >= 0 {
+				if idx > 0 {
+					parts = append(parts, part[:idx])
+				}
+				endIdx := strings.Index(part, "]")
+				if endIdx > idx {
+					parts = append(parts, part[idx+1:endIdx])
+					part = part[endIdx+1:]
+				} else {
+					// Malformed, treat as literal
+					parts = append(parts, part)
+					part = ""
+				}
+			} else {
+				parts = append(parts, part)
+				part = ""
+			}
+		}
+	}
+	return &JSONPath{parts: parts}
 }
 
 // Get retrieves a value from a JSON object using the path

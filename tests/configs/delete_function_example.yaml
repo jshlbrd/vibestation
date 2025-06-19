@@ -1,0 +1,12 @@
+transforms: |
+  # Copy entire message to $.copy
+  $.copy = $
+  
+  # Delete a field and store its value
+  $.deleted_data = delete($.data)
+  
+  # Delete another field without storing it
+  delete($.compressed)
+  
+  # Print the result
+  send_stdout() 

@@ -1,0 +1,12 @@
+transforms: |
+  # Copy a field
+  $.copied_data = $.data
+
+  # Move a field (copy and delete)
+  $.moved_encoded = delete($.encoded)
+
+  # Delete a field
+  delete($.compressed)
+
+  # Print the result
+  send_stdout() 

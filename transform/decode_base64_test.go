@@ -88,7 +88,7 @@ func TestDecodeBase64Transform_WithTarget(t *testing.T) {
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
 
-	val := msgs[0].GetValue("decoded")
+	val := msgs[0].GetValue("$.decoded")
 	if !val.Exists() {
 		t.Fatal("expected decoded value to exist in target path")
 	}

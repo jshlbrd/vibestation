@@ -84,7 +84,7 @@ func (tf *DecodeBase64Transform) Transform(ctx context.Context, msg *message.Mes
 	// Determine input data
 	var inputData []byte
 	if tf.sourcePath != "" {
-		val := msg.GetPathValue(tf.sourcePath)
+		val := msg.GetValue(tf.sourcePath)
 		if val.Exists() {
 			inputData = val.Bytes()
 		}
@@ -100,7 +100,7 @@ func (tf *DecodeBase64Transform) Transform(ctx context.Context, msg *message.Mes
 
 	// If we have a target path, store the result there
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, string(decoded))
+		err := msg.SetValue(tf.targetPath, string(decoded))
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}

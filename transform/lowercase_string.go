@@ -75,21 +75,21 @@ func (tf *LowercaseStringTransform) Transform(ctx context.Context, msg *message.
 		return []*message.Message{msg}, nil
 	}
 
-	var input string
+	var inputData []byte
 	if tf.sourcePath != "" {
-		val := msg.GetPathValue(tf.sourcePath)
+		val := msg.GetValue(tf.sourcePath)
 		if val.Exists() {
-			input = val.String()
+			inputData = val.Bytes()
 		}
 	}
-	if input == "" {
-		input = string(msg.Data())
+	if inputData == nil {
+		inputData = msg.Data()
 	}
 
-	lower := strings.ToLower(input)
+	lower := strings.ToLower(string(inputData))
 
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, lower)
+		err := msg.SetValue(tf.targetPath, lower)
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}

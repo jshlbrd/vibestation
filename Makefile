@@ -1,4 +1,4 @@
-.PHONY: build test clean run-yaml run-yaml-gzip run-yaml-custom run-yaml-input-vars run-yaml-assignment run-yaml-source test-input-param test-input-param-sub run-lowercase-example run-yaml-direct-assignment run-yaml-nested-functions
+.PHONY: build test clean run-yaml run-yaml-gzip run-yaml-custom run-yaml-input-vars run-yaml-assignment run-yaml-source test-input-param test-input-param-sub run-lowercase-example run-yaml-direct-assignment run-yaml-nested-functions run-yaml-entire-message-copy run-yaml-move-delete run-yaml-delete-function run-yaml-direct-assign-delete
 
 # Build the application
 build:
@@ -37,12 +37,24 @@ run-yaml-source: build
 	./vibestation -config tests/configs/source_test.yaml -input tests/data/test_input_targeting.json
 
 # Run with direct assignment example
-run-yaml-direct-assignment: build
+run-direct-assignment: build
 	./vibestation -config tests/configs/direct_assignment_example.yaml -input tests/data/test_input_param.json
 
 # Run with nested functions test
 run-yaml-nested-functions: build
 	./vibestation -config tests/configs/nested_functions_test.yaml -input tests/data/test_input_param.json
+
+# Run with entire message copy test
+run-yaml-entire-message-copy: build
+	./vibestation -config tests/configs/entire_message_copy.yaml -input tests/data/test_input_param.json
+
+# Run with move and delete test
+run-yaml-move-delete: build
+	./vibestation -config tests/configs/move_and_delete_example.yaml -input tests/data/test_input_param.json
+
+# Run with delete function test
+run-yaml-delete-function: build
+	./vibestation -config tests/configs/delete_function_example.yaml -input tests/data/test_input_param.json
 
 # Install dependencies
 deps:

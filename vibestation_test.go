@@ -26,7 +26,7 @@ func TestVibestationTransform(t *testing.T) {
 	cfg := Config{
 		Transforms: []config.Config{
 			{
-				Type: "string_split",
+				Type: "split_string",
 				Settings: map[string]interface{}{
 					"separator": "\n",
 					"id":        "test_split",
@@ -90,7 +90,7 @@ func TestVibestationDirectAssignment(t *testing.T) {
 	cfg := Config{
 		Transforms: []config.Config{
 			{
-				Type: "direct_assignment",
+				Type: "direct_assign",
 				Settings: map[string]interface{}{
 					"source": "$.message",
 					"target": "$.foo",

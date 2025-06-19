@@ -87,7 +87,7 @@ func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*m
 	// Determine input data
 	var inputData []byte
 	if tf.sourcePath != "" {
-		val := msg.GetPathValue(tf.sourcePath)
+		val := msg.GetValue(tf.sourcePath)
 		if val.Exists() {
 			inputData = val.Bytes()
 		}
@@ -98,7 +98,7 @@ func (tf *SendStdout) Transform(ctx context.Context, msg *message.Message) ([]*m
 
 	// If targetPath is set, store the input in the target JSON path
 	if tf.targetPath != "" {
-		err := msg.SetPathValue(tf.targetPath, string(inputData))
+		err := msg.SetValue(tf.targetPath, string(inputData))
 		if err != nil {
 			return nil, fmt.Errorf("transform %s: failed to set target: %v", tf.conf.ID, err)
 		}

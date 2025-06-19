@@ -64,7 +64,7 @@ func TestSendStdoutTransform_WithTarget(t *testing.T) {
 	}
 
 	// Check that the output value is stored in the target path
-	val := msgs[0].GetValue("output")
+	val := msgs[0].GetValue("$.output")
 	if !val.Exists() {
 		t.Fatal("expected output value to exist in target path")
 	}

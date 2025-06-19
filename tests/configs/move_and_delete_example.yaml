@@ -1,0 +1,12 @@
+transforms: |
+  # Copy entire message to $.copy
+  $.copy = $
+  
+  # Move a field from one location to another
+  move $.data to $.moved_data
+  
+  # Delete a field
+  delete $.compressed
+  
+  # Print the result
+  send_stdout() 

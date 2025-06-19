@@ -109,101 +109,163 @@ func (m *Message) SetMetadata(metadata []byte) *Message {
 	return m
 }
 
-// GetValue returns a value from the message data or metadata.
-//
-// If the key is prefixed with "meta" (e.g. "meta foo"), then
-// the value is retrieved from the metadata field, otherwise it
-// is retrieved from the data field.
-//
-// This only works with JSON text. If the message data or metadata
-// is not JSON text, then an empty value is returned.
-func (m *Message) GetValue(key string) Value {
-	if strings.HasPrefix(key, metaKey) {
-		key = strings.TrimPrefix(key, metaKey)
-		key = strings.TrimSpace(key)
+// isValidJSONPath returns true if the path is a valid JSONPath (starts with $. or meta.$.)
+func isValidJSONPath(path string) bool {
+	path = strings.TrimSpace(path)
+	return path == "$" || path == "meta.$" || strings.HasPrefix(path, "$.") || strings.HasPrefix(path, "meta.$.")
+}
 
-		path := NewJSONPath(key)
-		val, err := path.Get(m.meta)
+// GetValue returns a value from the message data or metadata using a JSON path.
+//
+// The path must be a valid JSONPath:
+// - Data: "$.foo", "$.nested.field"
+// - Metadata: "meta.$.foo", "meta.$.nested.field"
+//
+// If the path is not valid, returns a non-existent value.
+func (m *Message) GetValue(path string) Value {
+	path = strings.TrimSpace(path)
+	if !isValidJSONPath(path) {
+		return Value{value: nil, exists: false}
+	}
+
+	if path == "$" {
+		// Return the entire data object
+		var obj interface{}
+		if err := json.Unmarshal(m.data, &obj); err != nil {
+			return Value{value: nil, exists: false}
+		}
+		return Value{value: obj, exists: true}
+	}
+	if path == "meta.$" {
+		// Return the entire metadata object
+		var obj interface{}
+		if err := json.Unmarshal(m.meta, &obj); err != nil {
+			return Value{value: nil, exists: false}
+		}
+		return Value{value: obj, exists: true}
+	}
+
+	if strings.HasPrefix(path, "meta.$.") {
+		jsonPath := NewJSONPath(path)
+		val, err := jsonPath.Get(m.meta)
 		if err != nil {
 			return Value{value: nil, exists: false}
 		}
 		return Value{value: val, exists: true}
 	}
 
-	key = strings.TrimSpace(key)
-	path := NewJSONPath(key)
-	val, err := path.Get(m.data)
-	if err != nil {
-		return Value{value: nil, exists: false}
+	if strings.HasPrefix(path, "$.") {
+		jsonPath := NewJSONPath(path)
+		val, err := jsonPath.Get(m.data)
+		if err != nil {
+			return Value{value: nil, exists: false}
+		}
+		return Value{value: val, exists: true}
 	}
-	return Value{value: val, exists: true}
+
+	return Value{value: nil, exists: false}
 }
 
-// SetValue sets a value in the message data or metadata.
+// SetValue sets a value in the message data or metadata using a JSON path.
 //
-// If the key is prefixed with "meta" (e.g. "meta foo"), then
-// the value is placed into the metadata field, otherwise it
-// is placed into the data field.
+// The path must be a valid JSONPath:
+// - Data: "$.foo", "$.nested.field"
+// - Metadata: "meta.$.foo", "meta.$.nested.field"
 //
-// This only works with JSON text. If the message data or metadata
-// is not JSON text, then this method does nothing.
-func (m *Message) SetValue(key string, value interface{}) error {
-	if strings.HasPrefix(key, metaKey) {
-		key = strings.TrimPrefix(key, metaKey)
-		key = strings.TrimSpace(key)
+// If the path is not valid, returns an error.
+func (m *Message) SetValue(path string, value interface{}) error {
+	path = strings.TrimSpace(path)
+	if !isValidJSONPath(path) {
+		return fmt.Errorf("invalid JSONPath: %s", path)
+	}
 
-		path := NewJSONPath(key)
-		meta, err := path.Set(m.meta, value)
+	if path == "$" {
+		// Set the entire data object
+		data, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		m.data = data
+		return nil
+	}
+	if path == "meta.$" {
+		// Set the entire metadata object
+		meta, err := json.Marshal(value)
 		if err != nil {
 			return err
 		}
 		m.meta = meta
-
 		return nil
 	}
 
-	key = strings.TrimSpace(key)
-	path := NewJSONPath(key)
-	data, err := path.Set(m.data, value)
-	if err != nil {
-		return err
-	}
-	m.data = data
-
-	return nil
-}
-
-// DeleteValue deletes a value in the message data or metadata.
-//
-// If the key is prefixed with "meta" (e.g. "meta foo"), then
-// the value is removed from the metadata field, otherwise it
-// is removed from the data field.
-//
-// This only works with JSON text. If the message data or metadata
-// is not JSON text, then this method does nothing.
-func (m *Message) DeleteValue(key string) error {
-	if strings.HasPrefix(key, metaKey) {
-		key = strings.TrimPrefix(key, metaKey)
-		key = strings.TrimSpace(key)
-
-		path := NewJSONPath(key)
-		meta, err := path.Delete(m.meta)
+	if strings.HasPrefix(path, "meta.$.") {
+		jsonPath := NewJSONPath(path)
+		meta, err := jsonPath.Set(m.meta, value)
 		if err != nil {
 			return err
 		}
 		m.meta = meta
-
 		return nil
 	}
 
-	path := NewJSONPath(key)
-	data, err := path.Delete(m.data)
-	if err != nil {
-		return err
+	if strings.HasPrefix(path, "$.") {
+		jsonPath := NewJSONPath(path)
+		data, err := jsonPath.Set(m.data, value)
+		if err != nil {
+			return err
+		}
+		m.data = data
+		return nil
 	}
-	m.data = data
 
-	return nil
+	return fmt.Errorf("invalid JSONPath: %s", path)
+}
+
+// DeleteValue deletes a value in the message data or metadata using a JSON path.
+//
+// The path must be a valid JSONPath:
+// - Data: "$.foo", "$.nested.field"
+// - Metadata: "meta.$.foo", "meta.$.nested.field"
+//
+// If the path is not valid, returns an error.
+func (m *Message) DeleteValue(path string) error {
+	path = strings.TrimSpace(path)
+	if !isValidJSONPath(path) {
+		return fmt.Errorf("invalid JSONPath: %s", path)
+	}
+
+	if path == "$" {
+		// Delete entire data object
+		m.data = []byte(`{}`)
+		return nil
+	}
+	if path == "meta.$" {
+		// Delete entire metadata object
+		m.meta = []byte(`{}`)
+		return nil
+	}
+
+	if strings.HasPrefix(path, "meta.$.") {
+		jsonPath := NewJSONPath(path)
+		meta, err := jsonPath.Delete(m.meta)
+		if err != nil {
+			return err
+		}
+		m.meta = meta
+		return nil
+	}
+
+	if strings.HasPrefix(path, "$.") {
+		jsonPath := NewJSONPath(path)
+		data, err := jsonPath.Delete(m.data)
+		if err != nil {
+			return err
+		}
+		m.data = data
+		return nil
+	}
+
+	return fmt.Errorf("invalid JSONPath: %s", path)
 }
 
 // Value provides access to JSON values returned by GetValue.
@@ -459,45 +521,4 @@ func anyToBytes(v any) []byte {
 	_ = msg.SetValue("_", v)
 
 	return msg.GetValue("_").Bytes()
-}
-
-// GetPathValue returns a value from the message using a JSON path, handling optional $. prefix.
-// Supports metadata access via 'meta.$.field' syntax.
-func (m *Message) GetPathValue(path string) Value {
-	path = strings.TrimSpace(path)
-
-	// Handle metadata paths: meta.$.field
-	if strings.HasPrefix(path, "meta.$.") {
-		// Convert meta.$.field to meta field
-		metaPath := strings.TrimPrefix(path, "meta.$.")
-		return m.GetValue("meta " + metaPath)
-	}
-
-	// Handle regular data paths
-	if strings.HasPrefix(path, "$.") {
-		path = strings.TrimPrefix(path, "$.")
-	}
-
-	return m.GetValue(path)
-}
-
-// SetPathValue sets a value at a JSON path, supporting metadata access with meta.$ prefix
-func (m *Message) SetPathValue(path string, value interface{}) error {
-	path = strings.TrimSpace(path)
-
-	// Handle metadata access with meta.$ prefix
-	if strings.HasPrefix(path, "meta.$.") {
-		// Convert meta.$.field to meta field
-		metaPath := strings.TrimPrefix(path, "meta.$.")
-		return m.SetValue("meta "+metaPath, value)
-	}
-
-	// Handle regular JSON path access
-	if strings.HasPrefix(path, "$.") {
-		path = strings.TrimPrefix(path, "$.")
-		return m.SetValue(path, value)
-	}
-
-	// Handle direct key access
-	return m.SetValue("$."+path, value)
 }

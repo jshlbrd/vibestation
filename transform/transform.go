@@ -31,6 +31,24 @@ func New(ctx context.Context, cfg config.Config) (Transformer, error) {
 		return newDecodeBase64(ctx, cfg)
 	case "lowercase_string":
 		return newLowercaseString(ctx, cfg)
+	case "assign":
+		source, _ := cfg.Settings["source"].(string)
+		target, _ := cfg.Settings["target"].(string)
+		return newDirectAssignTransformer(source, target), nil
+	case "direct_delete":
+		path, _ := cfg.Settings["path"].(string)
+		target, _ := cfg.Settings["target"].(string)
+		if target != "" {
+			return newDirectDeleteTransformerWithTarget(path, target), nil
+		}
+		return newDirectDeleteTransformer(path), nil
+	case "delete":
+		path, _ := cfg.Settings["source"].(string)
+		target, _ := cfg.Settings["target"].(string)
+		if target != "" {
+			return newDirectDeleteTransformerWithTarget(path, target), nil
+		}
+		return newDirectDeleteTransformer(path), nil
 	default:
 		return nil, fmt.Errorf("transform %s: unsupported transform type", cfg.Type)
 	}

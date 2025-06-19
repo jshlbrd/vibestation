@@ -76,8 +76,8 @@ func (p *Parser) parseDirectAssignment(line string) ([]map[string]interface{}, e
 	}
 
 	transform := map[string]interface{}{
-		"id":     "direct_assignment",
-		"type":   "direct_assignment",
+		"id":     "assign",
+		"type":   "assign",
 		"source": source,
 		"target": target,
 	}
@@ -104,6 +104,13 @@ func (p *Parser) parseAssignmentWithFunction(line string) ([]map[string]interfac
 	transforms, err := p.parseFunctionCallWithTarget(funcCall, target)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing assignment with function: %v", err)
+	}
+
+	// Special handling for delete function in assignment context
+	for _, transform := range transforms {
+		if transform["type"] == "delete" {
+			transform["target"] = target
+		}
 	}
 
 	return transforms, nil
@@ -350,6 +357,7 @@ func (p *Parser) isBuiltinTransform(funcName string) bool {
 		"send_stdout":      true,
 		"decode_base64":    true,
 		"lowercase_string": true,
+		"delete":           true,
 	}
 	return builtins[funcName]
 }
@@ -357,12 +365,12 @@ func (p *Parser) isBuiltinTransform(funcName string) bool {
 // processBuiltinPositionalArgument processes positional arguments for built-in transforms
 func (p *Parser) processBuiltinPositionalArgument(funcName, arg string, settings map[string]interface{}, positionalIndex *int) error {
 	if *positionalIndex == 0 {
-		if strings.HasPrefix(arg, "$.") {
+		if arg == "$" || strings.HasPrefix(arg, "$.") {
 			settings["source"] = arg
 		} else if p.isNestedFunction(arg) {
 			settings["nested_arg_0"] = arg
 		} else {
-			return fmt.Errorf("first positional argument must be a JSON path (starting with $.) or a function call (containing parentheses); got: %q", arg)
+			return fmt.Errorf("first positional argument must be a JSON path (starting with $ or $.) or a function call (containing parentheses); got: %q", arg)
 		}
 	} else {
 		return fmt.Errorf("only the first positional argument is allowed for built-in transforms; use named arguments for additional parameters (got: %q)", arg)
@@ -408,6 +416,9 @@ func (p *Parser) setDefaultSettings(funcName string, settings map[string]interfa
 		},
 		"lowercase_string": {
 			"id": "lowercase_string",
+		},
+		"delete": {
+			"id": "delete",
 		},
 	}
 

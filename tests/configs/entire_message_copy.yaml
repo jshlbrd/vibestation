@@ -1,0 +1,9 @@
+transforms: |
+  # Copy the entire message object to $.copy
+  $.copy = $
+  
+  # Add a new field to show the copy worked
+  $.status = "copied"
+  
+  # Print the result
+  send_stdout() 

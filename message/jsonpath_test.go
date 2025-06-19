@@ -21,12 +21,12 @@ func TestJSONPath_Get(t *testing.T) {
 		expected interface{}
 		exists   bool
 	}{
-		{"a.b.c", "value", true},
-		{"a.d.0", float64(1), true},
-		{"a.d.1", float64(2), true},
-		{"e", "simple", true},
-		{"a.b.d", nil, false},
-		{"x.y.z", nil, false},
+		{"$.a.b.c", "value", true},
+		{"$.a.d[0]", float64(1), true},
+		{"$.a.d[1]", float64(2), true},
+		{"$.e", "simple", true},
+		{"$.a.b.d", nil, false},
+		{"$.x.y.z", nil, false},
 	}
 
 	for _, tt := range tests {
@@ -73,56 +73,56 @@ func TestJSONPath_Set(t *testing.T) {
 		{
 			name:     "set simple key",
 			initial:  `{"a": "old"}`,
-			path:     "a",
+			path:     "$.a",
 			value:    "new",
 			expected: `{"a":"new"}`,
 		},
 		{
 			name:     "set nested key",
 			initial:  `{"a": {"b": "old"}}`,
-			path:     "a.b",
+			path:     "$.a.b",
 			value:    "new",
 			expected: `{"a":{"b":"new"}}`,
 		},
 		{
 			name:     "create nested path",
 			initial:  `{}`,
-			path:     "a.b.c",
+			path:     "$.a.b.c",
 			value:    "value",
 			expected: `{"a":{"b":{"c":"value"}}}`,
 		},
 		{
 			name:     "set array element",
 			initial:  `{"arr": [1, 2, 3]}`,
-			path:     "arr.1",
+			path:     "$.arr[1]",
 			value:    "new",
 			expected: `{"arr":[1,"new",3]}`,
 		},
 		{
 			name:     "set integer",
 			initial:  `{}`,
-			path:     "intVal",
+			path:     "$.intVal",
 			value:    42,
 			expected: `{"intVal":42}`,
 		},
 		{
 			name:     "set float",
 			initial:  `{}`,
-			path:     "floatVal",
+			path:     "$.floatVal",
 			value:    3.14,
 			expected: `{"floatVal":3.14}`,
 		},
 		{
 			name:     "set array",
 			initial:  `{}`,
-			path:     "arrVal",
+			path:     "$.arrVal",
 			value:    []interface{}{1, 2, 3},
 			expected: `{"arrVal":[1,2,3]}`,
 		},
 		{
 			name:     "set object",
 			initial:  `{}`,
-			path:     "objVal",
+			path:     "$.objVal",
 			value:    map[string]interface{}{"foo": 1, "bar": 2},
 			expected: `{"objVal":{"bar":2,"foo":1}}`,
 		},
@@ -158,19 +158,19 @@ func TestJSONPath_Delete(t *testing.T) {
 		{
 			name:     "delete simple key",
 			initial:  `{"a": "value", "b": "keep"}`,
-			path:     "a",
+			path:     "$.a",
 			expected: `{"b":"keep"}`,
 		},
 		{
 			name:     "delete nested key",
 			initial:  `{"a": {"b": "value", "c": "keep"}}`,
-			path:     "a.b",
+			path:     "$.a.b",
 			expected: `{"a":{"c":"keep"}}`,
 		},
 		{
 			name:     "delete non-existent key",
 			initial:  `{"a": "value"}`,
-			path:     "b",
+			path:     "$.b",
 			expected: `{"a":"value"}`,
 		},
 	}
@@ -199,12 +199,12 @@ func TestMessage_GetValue_SetValue(t *testing.T) {
 	msg := New()
 
 	// Test setting and getting nested values
-	err := msg.SetValue("a.b.c", "nested_value")
+	err := msg.SetValue("$.a.b.c", "nested_value")
 	if err != nil {
 		t.Errorf("Expected no error setting nested value, got %v", err)
 	}
 
-	val := msg.GetValue("a.b.c")
+	val := msg.GetValue("$.a.b.c")
 	if !val.Exists() {
 		t.Error("Expected value to exist")
 	}
@@ -213,12 +213,12 @@ func TestMessage_GetValue_SetValue(t *testing.T) {
 	}
 
 	// Test setting and getting array elements
-	err = msg.SetValue("arr.0", "first")
+	err = msg.SetValue("$.arr.0", "first")
 	if err != nil {
 		t.Errorf("Expected no error setting array element, got %v", err)
 	}
 
-	val = msg.GetValue("arr.0")
+	val = msg.GetValue("$.arr.0")
 	if !val.Exists() {
 		t.Error("Expected array element to exist")
 	}
@@ -227,12 +227,12 @@ func TestMessage_GetValue_SetValue(t *testing.T) {
 	}
 
 	// Test metadata access
-	err = msg.SetValue("meta test", "metadata_value")
+	err = msg.SetValue("meta.$.test", "metadata_value")
 	if err != nil {
 		t.Errorf("Expected no error setting metadata, got %v", err)
 	}
 
-	val = msg.GetValue("meta test")
+	val = msg.GetValue("meta.$.test")
 	if !val.Exists() {
 		t.Error("Expected metadata to exist")
 	}

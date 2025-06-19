@@ -63,12 +63,12 @@ func TestLowercaseStringTransform_WithTarget(t *testing.T) {
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
 
-	val := msgs[0].GetPathValue("bar")
+	val := msgs[0].GetValue("$.bar")
 	if !val.Exists() {
-		t.Fatal("expected bar value to exist in target path")
+		t.Error("Expected result to be stored in target path")
 	}
 	if val.String() != "hello world" {
-		t.Errorf("expected %q, got %q", "hello world", val.String())
+		t.Errorf("Expected 'hello world', got '%s'", val.String())
 	}
 }
 

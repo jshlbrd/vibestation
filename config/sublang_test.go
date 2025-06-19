@@ -254,8 +254,8 @@ func TestParserDirectFieldAssignment(t *testing.T) {
 	}
 
 	config := configs[0]
-	if config["type"] != "direct_assignment" {
-		t.Errorf("Expected type 'direct_assignment', got '%s'", config["type"])
+	if config["type"] != "assign" {
+		t.Errorf("Expected type 'assign', got '%s'", config["type"])
 	}
 
 	source, ok := config["source"].(string)
@@ -387,5 +387,107 @@ func TestParserRejectsInvalidFirstPositionalArgs(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected error for invalid first positional arg: %q", sub)
 		}
+	}
+}
+
+func TestParserEntireMessageCopy(t *testing.T) {
+	parser := NewParser()
+	sub := `$.copy = $
+$.status = "copied"
+send_stdout()`
+
+	configs, err := parser.Parse(sub)
+	if err != nil {
+		t.Fatalf("Failed to parse SUB: %v", err)
+	}
+
+	if len(configs) != 3 {
+		t.Errorf("Expected 3 configs, got %d", len(configs))
+	}
+
+	// Check first config (direct assignment of entire message)
+	if configs[0]["type"] != "assign" {
+		t.Errorf("Expected type 'assign', got '%s'", configs[0]["type"])
+	}
+	if configs[0]["source"] != "$" {
+		t.Errorf("Expected source '$', got '%v'", configs[0]["source"])
+	}
+	if configs[0]["target"] != "$.copy" {
+		t.Errorf("Expected target '$.copy', got '%v'", configs[0]["target"])
+	}
+
+	// Check second config (direct assignment of string)
+	if configs[1]["type"] != "assign" {
+		t.Errorf("Expected type 'assign', got '%s'", configs[1]["type"])
+	}
+	if configs[1]["source"] != `"copied"` {
+		t.Errorf("Expected source '\"copied\"', got '%v'", configs[1]["source"])
+	}
+	if configs[1]["target"] != "$.status" {
+		t.Errorf("Expected target '$.status', got '%v'", configs[1]["target"])
+	}
+
+	// Check third config (send_stdout)
+	if configs[2]["type"] != "send_stdout" {
+		t.Errorf("Expected type 'send_stdout', got '%s'", configs[2]["type"])
+	}
+}
+
+func TestParserDeleteFunction(t *testing.T) {
+	parser := NewParser()
+	sub := `delete($.field)
+send_stdout()`
+
+	configs, err := parser.Parse(sub)
+	if err != nil {
+		t.Fatalf("Failed to parse SUB: %v", err)
+	}
+
+	if len(configs) != 2 {
+		t.Errorf("Expected 2 configs, got %d", len(configs))
+	}
+
+	// Check first config (delete function)
+	if configs[0]["type"] != "delete" {
+		t.Errorf("Expected type 'delete', got '%s'", configs[0]["type"])
+	}
+	if configs[0]["source"] != "$.field" {
+		t.Errorf("Expected source '$.field', got '%v'", configs[0]["source"])
+	}
+
+	// Check second config (send_stdout)
+	if configs[1]["type"] != "send_stdout" {
+		t.Errorf("Expected type 'send_stdout', got '%s'", configs[1]["type"])
+	}
+}
+
+func TestParserDeleteAssignment(t *testing.T) {
+	parser := NewParser()
+	sub := `$.foo = delete($.bar)
+send_stdout()`
+
+	configs, err := parser.Parse(sub)
+	if err != nil {
+		t.Fatalf("Failed to parse SUB: %v", err)
+	}
+
+	if len(configs) != 2 {
+		t.Errorf("Expected 2 configs, got %d", len(configs))
+	}
+
+	// Check first config (delete function with assignment)
+	if configs[0]["type"] != "delete" {
+		t.Errorf("Expected type 'delete', got '%s'", configs[0]["type"])
+	}
+	if configs[0]["source"] != "$.bar" {
+		t.Errorf("Expected source '$.bar', got '%v'", configs[0]["source"])
+	}
+	if configs[0]["target"] != "$.foo" {
+		t.Errorf("Expected target '$.foo', got '%v'", configs[0]["target"])
+	}
+
+	// Check second config (send_stdout)
+	if configs[1]["type"] != "send_stdout" {
+		t.Errorf("Expected type 'send_stdout', got '%s'", configs[1]["type"])
 	}
 }
